@@ -63,7 +63,7 @@ export function useAppState() {
   // ── AI chat sessions ───────────────────────────────────────────────────────
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
-  const [activeProvider, setActiveProvider] = useState<'Gemini' | 'Claude' | 'OpenRouter' | 'NotebookLM'>('Gemini');
+  const [activeProvider, setActiveProvider] = useState<'Gemini' | 'OpenRouter'>('Gemini');
 
   // ── Calculator ────────────────────────────────────────────────────────────
   const [calcData, setCalcData] = useState<CalcData>({

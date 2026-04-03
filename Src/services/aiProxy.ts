@@ -1,7 +1,7 @@
 export interface AIMessage { role: 'user' | 'assistant'; content: string; }
 
 export interface AIProxyRequest {
-  provider: 'gemini' | 'claude' | 'openrouter';
+  provider: 'gemini' | 'openrouter' | 'claude' | 'anthropic'; // gemini + openrouter are primary
   model: string;
   system?: string;
   messages: AIMessage[];

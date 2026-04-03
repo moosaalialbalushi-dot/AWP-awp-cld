@@ -1,37 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  BrainCircuit, Plus, Send, Loader2, X, Trash2, Paperclip, Mic, MicOff,
+  BrainCircuit, Plus, Send, Loader2, X, Trash2, Sparkles, Shuffle,
 } from 'lucide-react';
 import type { ChatSession, ChatMessage } from '@/types';
 import { callAIProxy, extractText } from '@/services/aiProxy';
 
-const PROVIDERS = ['Gemini', 'Claude', 'OpenRouter'] as const;
+const PROVIDERS = ['Gemini', 'OpenRouter'] as const;
 type Provider = typeof PROVIDERS[number];
 
-const PROVIDER_MODELS: Record<Provider, { id: string; label: string }[]> = {
+const PROVIDER_MODELS: Record<Provider, { id: string; label: string; free?: boolean }[]> = {
   Gemini: [
-    { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-    { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-  ],
-  Claude: [
-    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku' },
-    { id: 'claude-sonnet-4-6', label: 'Claude Sonnet' },
-    { id: 'claude-opus-4-6', label: 'Claude Opus' },
+    { id: 'gemini-2.0-flash',   label: 'Gemini 2.0 Flash',  free: true },
+    { id: 'gemini-2.5-pro',     label: 'Gemini 2.5 Pro' },
   ],
   OpenRouter: [
-    { id: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B' },
-    { id: 'mistralai/mistral-7b-instruct:free', label: 'Mistral 7B (Free)' },
-    { id: 'google/gemini-2.0-flash-exp:free', label: 'Gemini Flash (Free)' },
-    { id: 'deepseek/deepseek-chat', label: 'DeepSeek Chat' },
-    { id: 'openai/gpt-4o-mini', label: 'GPT-4o Mini' },
-    { id: 'anthropic/claude-3.5-haiku', label: 'Claude 3.5 Haiku' },
+    { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B', free: true },
+    { id: 'google/gemini-2.0-flash-exp:free',        label: 'Gemini Flash',  free: true },
+    { id: 'mistralai/mistral-7b-instruct:free',       label: 'Mistral 7B',   free: true },
+    { id: 'deepseek/deepseek-chat-v3-0324:free',      label: 'DeepSeek V3',  free: true },
+    { id: 'openai/gpt-4o-mini',                       label: 'GPT-4o Mini' },
+    { id: 'anthropic/claude-3.5-haiku',               label: 'Claude Haiku' },
   ],
-};
-
-const PROVIDER_COLORS: Record<Provider, string> = {
-  Gemini: 'text-blue-400',
-  Claude: 'text-orange-400',
-  OpenRouter: 'text-emerald-400',
 };
 
 interface Props {
@@ -43,6 +32,10 @@ interface Props {
   onSetProvider: (p: Provider) => void;
 }
 
+const SYSTEM = `You are an expert Al Wajer Pharmaceutical ERP assistant.
+Help with formulations, business strategy, regulatory compliance, and operations.
+Be concise, professional, and pharmaceutical-industry-accurate.`;
+
 export const AICommand: React.FC<Props> = ({
   chatSessions, activeChatId, activeProvider,
   onSetSessions, onSetActiveChat, onSetProvider,
@@ -50,13 +43,12 @@ export const AICommand: React.FC<Props> = ({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<Record<Provider, string>>({
-    Gemini: 'gemini-2.0-flash', Claude: 'claude-sonnet-4-6', OpenRouter: 'meta-llama/llama-3.3-70b-instruct',
+    Gemini: 'gemini-2.0-flash',
+    OpenRouter: 'meta-llama/llama-3.3-70b-instruct:free',
   });
-  const [isListening, setIsListening] = useState(false);
   const msgEndRef = useRef<HTMLDivElement>(null);
 
   const activeSession = chatSessions.find(s => s.id === activeChatId && !s.archived);
-
   useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [activeSession?.messages]);
 
   const createNewChat = () => {
@@ -91,7 +83,7 @@ export const AICommand: React.FC<Props> = ({
       return {
         ...s,
         provider: activeProvider,
-        title: s.messages.length === 0 ? userInput.slice(0, 40) : s.title,
+        title: s.messages.length === 0 ? userInput.slice(0, 45) : s.title,
         messages: [...s.messages, userMsg],
       };
     }));
@@ -103,16 +95,16 @@ export const AICommand: React.FC<Props> = ({
         content: m.text,
       })) ?? [];
 
+      const provider = activeProvider.toLowerCase() as 'gemini' | 'openrouter';
       const res = await callAIProxy({
-        provider: activeProvider.toLowerCase() as 'gemini' | 'claude' | 'openrouter',
+        provider,
         model: selectedModel[activeProvider],
-        system: 'You are an expert Al Wajer Pharmaceutical ERP assistant. Help with formulations, business strategy, regulatory, and operations.',
+        system: SYSTEM,
         messages: [...history, { role: 'user', content: userInput }],
       });
 
-      const text = extractText(res, activeProvider.toLowerCase()) || 'No response.';
+      const text = extractText(res, provider) || 'No response.';
       const modelMsg: ChatMessage = { id: `m-${Date.now()}`, role: 'model', text, timestamp: Date.now() };
-
       onSetSessions(prev => prev.map(s => s.id === activeChatId ? { ...s, messages: [...s.messages, modelMsg] } : s));
     } catch (e) {
       const errMsg: ChatMessage = { id: `m-${Date.now()}`, role: 'model', text: `Error: ${String(e)}`, timestamp: Date.now() };
@@ -127,17 +119,19 @@ export const AICommand: React.FC<Props> = ({
 
   return (
     <div className="flex gap-3 animate-fadeIn" style={{ height: 'calc(100vh - 200px)', minHeight: '500px' }}>
-      {/* Sidebar */}
+      {/* Session list */}
       <div className="w-44 shrink-0 flex flex-col gap-2">
-        <button onClick={createNewChat} className="w-full py-2 bg-[#D4AF37] hover:bg-[#c4a030] text-slate-950 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all">
+        <button onClick={createNewChat}
+          className="w-full py-2 bg-[#D4AF37] hover:bg-[#c4a030] text-slate-950 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all">
           <Plus size={12}/> New Chat
         </button>
         <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1">
           {activeSessions.map(s => (
-            <div key={s.id} onClick={() => { onSetActiveChat(s.id); onSetProvider(s.provider as Provider); }}
+            <div key={s.id}
+              onClick={() => { onSetActiveChat(s.id); onSetProvider(s.provider as Provider); }}
               className={`group relative p-2.5 rounded-lg border cursor-pointer transition-all ${activeChatId === s.id ? 'bg-[#D4AF37]/10 border-[#D4AF37]/50' : 'bg-slate-900/50 border-white/5 hover:border-white/20'}`}>
               <p className="text-xs font-bold text-white truncate pr-4">{s.title || 'New Chat'}</p>
-              <p className={`text-[10px] font-bold ${PROVIDER_COLORS[s.provider as Provider] || 'text-slate-500'}`}>{s.provider}</p>
+              <p className={`text-[10px] font-bold ${s.provider === 'Gemini' ? 'text-blue-400' : 'text-emerald-400'}`}>{s.provider}</p>
               <p className="text-[9px] text-slate-600">{s.messages.length} msg</p>
               <button onClick={e => { e.stopPropagation(); archiveChat(s.id); }}
                 className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all"><X size={10}/></button>
@@ -147,7 +141,8 @@ export const AICommand: React.FC<Props> = ({
             <>
               <p className="text-[9px] text-slate-600 uppercase font-bold px-1 pt-2">History</p>
               {archivedSessions.map(s => (
-                <div key={s.id} onClick={() => { onSetSessions(prev => prev.map(x => x.id === s.id ? { ...x, archived: false } : x)); onSetActiveChat(s.id); }}
+                <div key={s.id}
+                  onClick={() => { onSetSessions(prev => prev.map(x => x.id === s.id ? { ...x, archived: false } : x)); onSetActiveChat(s.id); }}
                   className="group relative p-2 rounded-lg border border-white/5 bg-slate-900/20 cursor-pointer hover:border-white/10 transition-all">
                   <p className="text-[10px] text-slate-500 truncate pr-4">{s.title}</p>
                   <button onClick={e => { e.stopPropagation(); deleteChat(s.id); }}
@@ -161,22 +156,30 @@ export const AICommand: React.FC<Props> = ({
 
       {/* Main chat */}
       <div className="flex-1 flex flex-col gap-2 min-w-0">
-        {/* Provider bar */}
+        {/* Provider + model selector */}
         <div className="flex flex-wrap gap-1.5 items-center bg-slate-900/50 border border-white/10 rounded-xl px-3 py-2 shrink-0">
-          {PROVIDERS.map(p => (
-            <button key={p} onClick={() => onSetProvider(p)}
-              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${activeProvider === p ? `bg-${p === 'Gemini' ? 'blue' : p === 'Claude' ? 'orange' : 'emerald'}-500/10 border-${p === 'Gemini' ? 'blue' : p === 'Claude' ? 'orange' : 'emerald'}-500/30 ${PROVIDER_COLORS[p]}` : 'border-transparent text-slate-500 hover:text-white'}`}>
-              {p === 'Claude' ? '🤖 Claude' : p === 'Gemini' ? '✨ Gemini' : '🔀 OpenRouter'}
-            </button>
-          ))}
+          <button
+            onClick={() => onSetProvider('Gemini')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-lg border transition-all ${activeProvider === 'Gemini' ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' : 'border-transparent text-slate-500 hover:text-white'}`}>
+            <Sparkles size={11}/> Gemini
+          </button>
+          <button
+            onClick={() => onSetProvider('OpenRouter')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-lg border transition-all ${activeProvider === 'OpenRouter' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'border-transparent text-slate-500 hover:text-white'}`}>
+            <Shuffle size={11}/> OpenRouter
+          </button>
           <div className="w-px h-4 bg-white/10 mx-1"/>
           <select
             value={selectedModel[activeProvider]}
             onChange={e => setSelectedModel(prev => ({ ...prev, [activeProvider]: e.target.value }))}
-            className="bg-transparent text-slate-400 text-[11px] border border-white/10 rounded-lg px-2 py-0.5 focus:outline-none focus:border-[#D4AF37]/40"
-          >
-            {PROVIDER_MODELS[activeProvider].map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+            className="bg-transparent text-slate-400 text-[11px] border border-white/10 rounded-lg px-2 py-0.5 focus:outline-none focus:border-[#D4AF37]/40">
+            {PROVIDER_MODELS[activeProvider].map(m => (
+              <option key={m.id} value={m.id}>
+                {m.label}{m.free ? ' ✓ Free' : ''}
+              </option>
+            ))}
           </select>
+          <span className="ml-auto text-[10px] text-slate-600">Auto-fallback enabled</span>
         </div>
 
         {/* Messages */}
@@ -184,22 +187,31 @@ export const AICommand: React.FC<Props> = ({
           {!activeSession ? (
             <div className="h-full flex flex-col items-center justify-center text-center">
               <BrainCircuit className="text-slate-700 mb-3" size={40}/>
-              <p className="text-slate-500 text-sm">Select a chat or create a new one to start.</p>
+              <p className="text-slate-500 text-sm font-medium">Select a chat or create a new one</p>
+              <p className="text-slate-600 text-xs mt-1">Gemini 2.0 Flash is active with Llama fallback</p>
             </div>
           ) : activeSession.messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center">
-              <BrainCircuit className="text-[#D4AF37]/40 mb-3" size={36}/>
+            <div className="h-full flex flex-col items-center justify-center text-center gap-2">
+              <BrainCircuit className="text-[#D4AF37]/40 mb-2" size={36}/>
               <p className="text-slate-500 text-sm">Ask anything about formulations, business, or operations.</p>
+              <div className="flex flex-wrap gap-2 justify-center mt-2">
+                {['Analyze batch yield', 'Optimize formulation cost', 'Draft export invoice', 'Market entry strategy'].map(q => (
+                  <button key={q} onClick={() => setInput(q)}
+                    className="text-[11px] text-slate-500 border border-white/10 hover:border-[#D4AF37]/30 hover:text-white px-2.5 py-1 rounded-lg transition-all">
+                    {q}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
             activeSession.messages.map(msg => (
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm ${
+                <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                   msg.role === 'user'
                     ? 'bg-[#D4AF37] text-slate-950 font-medium rounded-br-sm'
                     : 'bg-slate-800/80 text-slate-200 border border-white/5 rounded-bl-sm'
                 }`}>
-                  <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.text}</p>
+                  <p className="whitespace-pre-wrap break-words">{msg.text}</p>
                 </div>
               </div>
             ))
@@ -217,22 +229,12 @@ export const AICommand: React.FC<Props> = ({
 
         {/* Input */}
         <div className="flex gap-2 shrink-0">
-          <button title="Attach file" className="p-2.5 text-slate-500 hover:text-white bg-slate-800 rounded-xl border border-white/10 transition-all">
-            <Paperclip size={15}/>
-          </button>
-          <button
-            onClick={() => setIsListening(l => !l)}
-            className={`p-2.5 rounded-xl border transition-all ${isListening ? 'bg-red-500/20 border-red-500/40 text-red-400' : 'bg-slate-800 border-white/10 text-slate-500 hover:text-white'}`}
-            title="Voice input"
-          >
-            {isListening ? <MicOff size={15}/> : <Mic size={15}/>}
-          </button>
           <div className="flex-1 relative">
             <textarea
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-              placeholder="Ask anything… (Shift+Enter for newline)"
+              placeholder="Ask anything… (Enter to send, Shift+Enter for newline)"
               rows={1}
               className="w-full bg-slate-800/50 border border-white/10 text-white rounded-xl px-4 py-2.5 text-sm focus:border-[#D4AF37]/50 focus:outline-none resize-none custom-scrollbar"
               style={{ maxHeight: '120px' }}
@@ -241,8 +243,7 @@ export const AICommand: React.FC<Props> = ({
           <button
             onClick={sendMessage}
             disabled={!input.trim() || isLoading}
-            className="p-2.5 bg-[#D4AF37] hover:bg-[#c4a030] text-slate-950 rounded-xl transition-all disabled:opacity-50"
-          >
+            className="p-2.5 bg-[#D4AF37] hover:bg-[#c4a030] text-slate-950 rounded-xl transition-all disabled:opacity-50">
             {isLoading ? <Loader2 size={16} className="animate-spin"/> : <Send size={16}/>}
           </button>
         </div>
