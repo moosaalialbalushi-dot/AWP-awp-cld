@@ -4,7 +4,7 @@ export type TabId =
   | 'dashboard' | 'production' | 'inventory' | 'sales'
   | 'procurement' | 'accounting' | 'hr' | 'rd'
   | 'industrial' | 'bd' | 'samples' | 'costing'
-  | 'ai' | 'history';
+  | 'filereader' | 'ai' | 'history';
 
 export interface Batch {
   id: string;

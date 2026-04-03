@@ -19,6 +19,7 @@ import { Samples } from '@/components/windows/Samples';
 import { Calculator } from '@/components/windows/Calculator';
 import { AICommand } from '@/components/windows/AICommand';
 import { AuditHistory } from '@/components/windows/AuditHistory';
+import { FileReader } from '@/components/windows/FileReader';
 import { analyzeOperations, optimizeFormulation } from '@/services/gemini';
 import { callAIProxy, extractText } from '@/services/aiProxy';
 import type { RDProject, ChatSession } from '@/types';
@@ -220,6 +221,9 @@ const App: React.FC = () => {
               onCalculate={handleCalculate}
               onReset={handleCalcReset}
             />
+          )}
+          {state.activeTab === 'filereader' && (
+            <FileReader onImport={state.importRecords}/>
           )}
           {state.activeTab === 'ai' && (
             <AICommand

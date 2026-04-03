@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   INITIAL_BATCHES, INITIAL_INVENTORY, INITIAL_ORDERS, INITIAL_EXPENSES,
   INITIAL_EMPLOYEES, INITIAL_VENDORS, INITIAL_BD, INITIAL_SAMPLES,
@@ -10,11 +10,13 @@ import type {
   COOInsight, TabId, WidgetId, ModalState, ApiConfig, CalcData, ChatSession,
 } from '@/types';
 import { generateId, today } from '@/lib/utils';
+import { db } from '@/services/database';
 
 export function useAppState() {
   // ── Navigation ──────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [dbReady, setDbReady] = useState(false);
 
   // ── Data ─────────────────────────────────────────────────────────────────────
   const [batches, setBatches] = useState<Batch[]>(INITIAL_BATCHES);
@@ -71,11 +73,61 @@ export function useAppState() {
   });
   const [calcResults, setCalcResults] = useState<Record<string, number> | null>(null);
 
+  // ═══════════════════════════════════════════════════════════════════
+  // Supabase: Load data on mount (falls back to initial data)
+  // ═══════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (!db.isReady()) { setDbReady(false); return; }
+
+    let cancelled = false;
+    (async () => {
+      const [
+        dbBatches, dbInventory, dbOrders, dbExpenses, dbEmployees,
+        dbVendors, dbBdLeads, dbSamples, dbMarkets, dbRdProjects, dbAuditLogs,
+      ] = await Promise.all([
+        db.batches(), db.inventory(), db.orders(), db.expenses(), db.employees(),
+        db.vendors(), db.bdLeads(), db.samples(), db.markets(), db.rdProjects(), db.auditLogs(),
+      ]);
+
+      if (cancelled) return;
+
+      // If DB has data, use it; otherwise seed with initial data
+      const hasData = (dbBatches?.length ?? 0) > 0 || (dbOrders?.length ?? 0) > 0;
+      if (hasData) {
+        if (dbBatches) setBatches(dbBatches);
+        if (dbInventory) setInventory(dbInventory);
+        if (dbOrders) setOrders(dbOrders);
+        if (dbExpenses) setExpenses(dbExpenses);
+        if (dbEmployees) setEmployees(dbEmployees);
+        if (dbVendors) setVendors(dbVendors);
+        if (dbBdLeads) setBdLeads(dbBdLeads);
+        if (dbSamples) setSamples(dbSamples);
+        if (dbMarkets) setMarkets(dbMarkets);
+        if (dbRdProjects) setRdProjects(dbRdProjects);
+        if (dbAuditLogs) setAuditLogs(dbAuditLogs);
+      } else {
+        // First run — seed the database with initial demo data
+        await db.seedAll({
+          batches: INITIAL_BATCHES, inventory: INITIAL_INVENTORY,
+          orders: INITIAL_ORDERS, expenses: INITIAL_EXPENSES,
+          employees: INITIAL_EMPLOYEES, vendors: INITIAL_VENDORS,
+          bdLeads: INITIAL_BD, samples: INITIAL_SAMPLES,
+          markets: INITIAL_MARKETS, rdProjects: INITIAL_RD,
+        });
+      }
+      setDbReady(true);
+    })();
+
+    return () => { cancelled = true; };
+  }, []);
+
   // ── Audit logging ─────────────────────────────────────────────────────────
   const logAudit = useCallback((action: string, details: string) => {
-    setAuditLogs(prev => [{
+    const log: AuditLog = {
       id: generateId('LOG'), action, user: 'Current User', details, timestamp: new Date().toISOString(),
-    }, ...prev]);
+    };
+    setAuditLogs(prev => [log, ...prev]);
+    db.saveAuditLog(log);
   }, []);
 
   // ── CRUD helpers ──────────────────────────────────────────────────────────
@@ -99,6 +151,10 @@ export function useAppState() {
 
   const handleSave = useCallback((type: ModalState['type'], data: Record<string, unknown>) => {
     const action = modal.mode === 'add' ? 'ADD' : 'EDIT';
+
+    // Persist to Supabase in background
+    if (type) db.saveByType(type, data);
+
     switch (type) {
       case 'production':
         setBatches(prev =>
@@ -180,6 +236,9 @@ export function useAppState() {
       isOpen: true,
       message: `Delete "${name}"? This cannot be undone.`,
       onConfirm: () => {
+        // Delete from Supabase in background
+        db.deleteRow(type, id);
+
         switch (type) {
           case 'production': setBatches(prev => prev.filter(b => b.id !== id)); break;
           case 'inventory':  setInventory(prev => prev.filter(i => i.id !== id)); break;
@@ -197,6 +256,28 @@ export function useAppState() {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       },
     });
+  }, [logAudit]);
+
+  // ── Bulk import (used by Universal File Reader) ───────────────────────────
+  const importRecords = useCallback((type: string, records: Record<string, unknown>[]) => {
+    for (const data of records) {
+      if (!data.id) data.id = generateId(type.toUpperCase().slice(0, 3));
+      db.saveByType(type, data);
+    }
+    switch (type) {
+      case 'production': setBatches(prev => [...prev, ...records as unknown as Batch[]]); break;
+      case 'inventory':  setInventory(prev => [...prev, ...records as unknown as InventoryItem[]]); break;
+      case 'sales':      setOrders(prev => [...prev, ...records as unknown as Order[]]); break;
+      case 'accounting': setExpenses(prev => [...prev, ...records as unknown as Expense[]]); break;
+      case 'hr':         setEmployees(prev => [...prev, ...records as unknown as Employee[]]); break;
+      case 'vendors':
+      case 'procurement':setVendors(prev => [...prev, ...records as unknown as Vendor[]]); break;
+      case 'rd':         setRdProjects(prev => [...prev, ...records as unknown as RDProject[]]); break;
+      case 'bd':         setBdLeads(prev => [...prev, ...records as unknown as BDLead[]]); break;
+      case 'samples':    setSamples(prev => [...prev, ...records as unknown as SampleStatus[]]); break;
+      case 'markets':    setMarkets(prev => [...prev, ...records as unknown as Market[]]); break;
+    }
+    logAudit(`IMPORT_${type.toUpperCase()}`, `Imported ${records.length} record(s) via AI File Reader`);
   }, [logAudit]);
 
   return {
@@ -223,5 +304,7 @@ export function useAppState() {
     calcData, setCalcData, calcResults, setCalcResults,
     // utils
     logAudit, today,
+    // DB
+    dbReady, importRecords,
   };
 }
