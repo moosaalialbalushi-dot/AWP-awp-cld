@@ -1,11 +1,11 @@
 {
   "rewrites": [{ "source": "/(.*)", "destination": "/" }],
   "functions": {
-    "api/**/*.ts": { "maxDuration": 30 }
+    "API/**/*.ts": { "maxDuration": 30 }
   },
   "headers": [
     {
-      "source": "/api/(.*)",
+      "source": "/API/(.*)",
       "headers": [
         { "key": "Access-Control-Allow-Origin", "value": "*" },
         { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS" },
