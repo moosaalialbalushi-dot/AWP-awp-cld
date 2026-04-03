@@ -1,8 +1,5 @@
 {
   "rewrites": [{ "source": "/(.*)", "destination": "/" }],
-  "functions": {
-    "API/**/*.ts": { "maxDuration": 30 }
-  },
   "headers": [
     {
       "source": "/API/(.*)",
