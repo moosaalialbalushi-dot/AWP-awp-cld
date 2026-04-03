@@ -1,0 +1,105 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { font-size: 14px; }
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: #020617;
+  color: #f8fafc;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* ── Scrollbar ───────────────────────────────────────── */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #1e293b transparent;
+}
+.custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+/* ── Gold glow utility ───────────────────────────────── */
+.gold-glow {
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.05),
+              0 4px 24px rgba(212, 175, 55, 0.04);
+}
+.gold-glow:hover {
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.1),
+              0 4px 32px rgba(212, 175, 55, 0.08);
+}
+
+/* ── Animations ──────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn { animation: fadeIn 0.25s ease-out forwards; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+.animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+/* ── Button utilities ────────────────────────────────── */
+.erp-btn-gold {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(212, 175, 55, 0.1);
+  color: #D4AF37;
+  border: 1px solid #D4AF37;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.erp-btn-gold:hover {
+  background: rgba(212, 175, 55, 0.2);
+}
+
+.erp-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #1e293b;
+  color: #94a3b8;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.erp-btn-ghost:hover {
+  background: #334155;
+  color: #fff;
+}
+
+/* ── Luxury gradient ─────────────────────────────────── */
+.luxury-gradient {
+  background: linear-gradient(135deg, #D4AF37 0%, #F4C430 50%, #D4AF37 100%);
+  color: #0f172a;
+  font-weight: 700;
+}
+.luxury-gradient:hover {
+  background: linear-gradient(135deg, #c4a030 0%, #e4b420 50%, #c4a030 100%);
+}
+
+/* ── Font mono ───────────────────────────────────────── */
+.font-mono { font-family: 'JetBrains Mono', 'Courier New', monospace; }
+
+/* ── Responsive helpers ──────────────────────────────── */
+@media (max-width: 640px) {
+  .erp-btn-gold, .erp-btn-ghost { padding: 7px 12px; font-size: 12px; }
+}
