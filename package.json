@@ -12,10 +12,12 @@
     "@anthropic-ai/sdk": "^0.78.0",
     "@google/genai": "^1.38.0",
     "@supabase/supabase-js": "2.39.0",
+    "@tailwindcss/vite": "^4.2.2",
     "lucide-react": "^0.563.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^3.7.0",
+    "tailwindcss": "^4.2.2",
     "xlsx": "^0.18.5",
     "zod": "^4.3.6"
   },
