@@ -1,17 +1,33 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string) ?? '';
-const supabaseKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) ?? '';
+// Lazy singleton — never call createClient with placeholder/missing values
+let _client: SupabaseClient | null = null;
 
-if (!supabaseUrl || !supabaseKey) {
-  console.warn(
-    '[Supabase] Missing env vars.\n' +
-    'Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.local\n' +
-    'or Vercel → Settings → Environment Variables.'
-  );
+export function getSupabaseClient(): SupabaseClient | null {
+  if (_client) return _client;
+
+  const url = (import.meta.env.VITE_SUPABASE_URL as string) ?? '';
+  const key = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) ?? '';
+
+  if (!url || !key || url.includes('placeholder') || key.includes('placeholder') || url.length < 10) {
+    return null;
+  }
+
+  try {
+    _client = createClient(url, key);
+    return _client;
+  } catch (e) {
+    console.warn('[Supabase] Failed to initialize client:', e);
+    return null;
+  }
 }
 
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseKey || 'placeholder'
-);
+export function isSupabaseConfigured(): boolean {
+  const url = (import.meta.env.VITE_SUPABASE_URL as string) ?? '';
+  const key = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) ?? '';
+  return url.length > 10 && key.length > 10 && !url.includes('placeholder');
+}
+
+// Keep backward compat — but this is now null when not configured
+// Use getSupabaseClient() in all service code instead
+export const supabase = { getClient: getSupabaseClient };

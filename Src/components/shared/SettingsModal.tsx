@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Key, Database, Save, Globe, Bot, CheckCircle2 } from 'lucide-react';
 import type { ApiConfig } from '@/types';
-import { isSupabaseReady } from '@/services/database';
+import { isSupabaseConfigured } from '@/services/supabase';
 
 interface Props {
   isOpen: boolean;
@@ -16,7 +16,7 @@ export const SettingsModal: React.FC<Props> = ({ isOpen, config, onSave, onClose
   if (!isOpen) return null;
 
   const handle = (key: keyof ApiConfig, val: string) => setForm(prev => ({ ...prev, [key]: val }));
-  const dbConnected = isSupabaseReady();
+  const dbConnected = isSupabaseConfigured();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
